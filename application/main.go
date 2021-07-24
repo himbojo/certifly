@@ -9,8 +9,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"go-ca/application/configuration"
 	"io/ioutil"
-	"math/big"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -18,50 +19,35 @@ import (
 )
 
 func main() {
-	fmt.Println("hello, world")
+	caConfiguration := configuration.Init{}
 
-	num, _ := new(big.Int).SetString("9999999999999999999999999999999999999999999999999999", 10)
-	serial, err := rand.Int(rand.Reader, num)
-	_ = err
-
-	fmt.Println("Choose Signature Algorithm: ")
-	fmt.Printf("1. %v\n2. %v\n3. %v\n4. %v\n5. %v\n6. %v\n", x509.SHA256WithRSA.String(), x509.SHA384WithRSA.String(), x509.SHA512WithRSA.String(), x509.ECDSAWithSHA256.String(), x509.ECDSAWithSHA384.String(), x509.ECDSAWithSHA512.String())
-	var signatureAlgorithmChoice int
-	var signatureAlgorithm x509.SignatureAlgorithm
-	fmt.Scanln(&signatureAlgorithmChoice)
-	switch signatureAlgorithmChoice {
-	case 1:
-		signatureAlgorithm = x509.SHA256WithRSA
-	case 2:
-		signatureAlgorithm = x509.SHA384WithRSA
-	case 3:
-		signatureAlgorithm = x509.SHA512WithRSA
-	case 4:
-		signatureAlgorithm = x509.ECDSAWithSHA256
-	case 5:
-		signatureAlgorithm = x509.ECDSAWithSHA384
-	case 6:
-		signatureAlgorithm = x509.ECDSAWithSHA512
-	default:
-		err := fmt.Errorf("Please select a valid Signature Algorithm")
-		fmt.Println(err.Error())
-		os.Exit(1)
+	err := caConfiguration.SetSerialNumber()
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	signatureAlgorithmChoices := caConfiguration.GetSignatureAlgorithmChoices()
+	fmt.Println("Choose Signature Algorithm: ")
+	for _, sigAlg := range signatureAlgorithmChoices {
+		fmt.Printf("%v. %v\n", sigAlg.Choice, sigAlg.SigAlg.String())
+	}
+	var signatureAlgorithmChoice int
+	fmt.Scanln(&signatureAlgorithmChoice)
+	err = caConfiguration.SetSignatureAlgorithm(signatureAlgorithmChoice)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	publicKeyAlgorithmChoices := caConfiguration.GetPublicKeyAlgorithmChoices()
 	fmt.Println("Choose Public Key Algorithm: ")
-	fmt.Printf("1. %v\n2. %v\n", x509.RSA.String(), x509.ECDSA.String())
+	for _, pkAlg := range publicKeyAlgorithmChoices {
+		fmt.Printf("%v. %v\n", pkAlg.Choice, pkAlg.PkAlg.String())
+	}
 	var publicKeyAlgorithmChoice int
-	var publicKeyAlgorithm x509.PublicKeyAlgorithm
 	fmt.Scanln(&publicKeyAlgorithmChoice)
-	switch publicKeyAlgorithmChoice {
-	case 1:
-		publicKeyAlgorithm = x509.RSA
-	case 2:
-		publicKeyAlgorithm = x509.ECDSA
-	default:
-		err := fmt.Errorf("Please select a valid Public Key Algorithm")
-		fmt.Println(err.Error())
-		os.Exit(1)
+	err = caConfiguration.SetPublicKeyAlgorithm(publicKeyAlgorithmChoice)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	fmt.Println("Enter Common Name: ")
@@ -163,9 +149,9 @@ func main() {
 	pathLengthConstraint, err := strconv.Atoi(pathLengthConstraintS)
 
 	certReqCA := x509.Certificate{
-		SerialNumber:          serial,
-		SignatureAlgorithm:    signatureAlgorithm,
-		PublicKeyAlgorithm:    publicKeyAlgorithm,
+		SerialNumber:          caConfiguration.Certificate.SerialNumber,
+		SignatureAlgorithm:    caConfiguration.Certificate.SignatureAlgorithm,
+		PublicKeyAlgorithm:    caConfiguration.Certificate.PublicKeyAlgorithm,
 		Subject:               subject,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(years, months, days),
@@ -184,7 +170,7 @@ func main() {
 	var keyLengthChoice int
 
 	fmt.Println("Choose the Key Length: ")
-	if publicKeyAlgorithm == x509.RSA {
+	if caConfiguration.Certificate.PublicKeyAlgorithm == x509.RSA {
 		fmt.Printf("1. %v\n3. %v\n3. %v\n4. %v\n5. %v\n", "1024", "2048", "4096", "8192", "16384")
 		fmt.Scanln(&keyLengthChoice)
 		var keyLength int
@@ -209,7 +195,7 @@ func main() {
 		_ = err
 	}
 
-	if publicKeyAlgorithm == x509.ECDSA {
+	if caConfiguration.Certificate.PublicKeyAlgorithm == x509.ECDSA {
 		fmt.Printf("1. %v\n3. %v\n3. %v\n", "256", "384", "521")
 		fmt.Scanln(&keyLengthChoice)
 		var keyCurve elliptic.Curve
