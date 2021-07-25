@@ -13,33 +13,51 @@ import (
 	"os"
 )
 
-// CreateSelfSignedCertificate creates a self signed certificate and returns the certificate in bytes
-func CreateSelfSignedCertificate(caConfiguration configuration.Init) (certBytes []byte, err error) {
+// CreateSignedCertificate creates a CA signed certificate and returns the certificate components
+func CreateSignedCertificate(caConfiguration configuration.Init, parentPub x509.Certificate, parentPriv interface{}) (certBytes []byte, privateKey []byte, err error) {
 	if caConfiguration.Certificate.PublicKeyAlgorithm == x509.RSA {
 		priv, err := rsa.GenerateKey(rand.Reader, caConfiguration.KeyLength)
-		certBytes, err = x509.CreateCertificate(rand.Reader, &caConfiguration.Certificate, &caConfiguration.Certificate, &priv.PublicKey, priv)
 		if err != nil {
-			return nil, fmt.Errorf("CreateSelfSignedCertificate: RSA Public Key Algorithm has not been set")
+			return nil, nil, fmt.Errorf("CreateCASignedCertificate: RSA Key couldn't be generated; %v", err)
 		}
-		return certBytes, nil
+		if parentPriv == nil {
+			parentPriv = priv
+		}
+		certBytes, err := x509.CreateCertificate(rand.Reader, &caConfiguration.Certificate, &parentPub, &priv.PublicKey, parentPriv)
+		if err != nil {
+			return nil, nil, fmt.Errorf("CreateCASignedCertificate: RSA Certificate couldn't be created; %v", err)
+		}
+		privateKey, err := x509.MarshalPKCS8PrivateKey(priv)
+		if err != nil {
+			return nil, nil, fmt.Errorf("CreateCASignedCertificate: RSA Private Key couldn't be marshaled; %v", err)
+		}
+		return certBytes, privateKey, nil
 	} else if caConfiguration.Certificate.PublicKeyAlgorithm == x509.ECDSA {
 		priv, err := ecdsa.GenerateKey(caConfiguration.KeyCurve, rand.Reader)
-		certBytes, err = x509.CreateCertificate(rand.Reader, &caConfiguration.Certificate, &caConfiguration.Certificate, &priv.PublicKey, priv)
-		if err != nil {
-			return nil, fmt.Errorf("CreateSelfSignedCertificate: ECDSA Public Key Algorithm has not been set")
+		if parentPriv == nil {
+			parentPriv = priv
 		}
-		return certBytes, nil
+		certBytes, err = x509.CreateCertificate(rand.Reader, &caConfiguration.Certificate, &parentPub, &priv.PublicKey, parentPriv)
+		if err != nil {
+			return nil, nil, fmt.Errorf("CreateCASignedCertificate: ECDSA Key couldn't be generated; %v", err)
+		}
+		privateKey, err := x509.MarshalPKCS8PrivateKey(priv)
+		if err != nil {
+			return nil, nil, fmt.Errorf("CreateCASignedCertificate: ECDSA Certificate couldn't be created; %v", err)
+		}
+		return certBytes, privateKey, nil
 	} else {
-		return nil, fmt.Errorf("CreateSelfSignedCertificate: Public Key Algorithm has not been set")
+		return nil, nil, fmt.Errorf("CreateCASignedCertificate: Public Key Algorithm has not been set")
 	}
 }
 
-func main() {
+// CreateCAConfiguration asks for user input and returns a CA configuration
+func CreateCAConfiguration() (configuration.Init, error) {
 	caConfiguration := configuration.Init{}
 
 	err := caConfiguration.SetSerialNumber()
 	if err != nil {
-		log.Fatal(err)
+		return caConfiguration, err
 	}
 
 	signatureAlgorithmChoices := caConfiguration.GetSignatureAlgorithmChoices()
@@ -51,7 +69,7 @@ func main() {
 	fmt.Scanln(&signatureAlgorithmChoice)
 	err = caConfiguration.SetSignatureAlgorithm(signatureAlgorithmChoice)
 	if err != nil {
-		log.Fatal(err)
+		return caConfiguration, err
 	}
 
 	publicKeyAlgorithmChoices := caConfiguration.GetPublicKeyAlgorithmChoices()
@@ -63,7 +81,7 @@ func main() {
 	fmt.Scanln(&publicKeyAlgorithmChoice)
 	err = caConfiguration.SetPublicKeyAlgorithm(publicKeyAlgorithmChoice)
 	if err != nil {
-		log.Fatal(err)
+		return caConfiguration, err
 	}
 
 	fmt.Println("Enter Common Name: ")
@@ -71,7 +89,7 @@ func main() {
 	fmt.Scanln(&commonName)
 	err = caConfiguration.SetSubjectCommonName(commonName)
 	if err != nil {
-		log.Fatal(err)
+		return caConfiguration, err
 	}
 
 	fmt.Println("Enter Country (Separated by commas): ")
@@ -121,7 +139,9 @@ func main() {
 	fmt.Println("Enter Validity Period Days:")
 	fmt.Scanln(&days)
 	caConfiguration.SetNotAfter(years, months, days)
-
+	if err != nil {
+		return caConfiguration, err
+	}
 	fmt.Println("Enter Path Length Constraint for CA (Enter -1 for no constraint): ")
 	pathLengthConstraint := 0
 	fmt.Scanln(&pathLengthConstraint)
@@ -131,7 +151,6 @@ func main() {
 	caConfiguration.SetCA()
 	caConfiguration.SetBasicConstraintsValid()
 
-	var newCertBytes []byte
 	var keyLengthChoice int
 
 	fmt.Println("Choose the Key Length: ")
@@ -142,13 +161,62 @@ func main() {
 	fmt.Scanln(&keyLengthChoice)
 	caConfiguration.SetKeyLength(keyLengthChoice)
 
-	newCertBytes, err = CreateSelfSignedCertificate(caConfiguration)
+	return caConfiguration, nil
+}
+
+// CreateRootCACertificate this creates a root CA certificate and return the public and private key
+func CreateRootCACertificate(rootConfig configuration.Init) ([]byte, []byte, error) {
+	newCertBytes, privateKey, err := CreateSignedCertificate(rootConfig, rootConfig.Certificate, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return newCertBytes, privateKey, nil
+}
+
+// CreateSubCACertificate this creates a CA certificate and return the public and private key
+func CreateSubCACertificate(subCAConfig configuration.Init, parentCert x509.Certificate, parentKey interface{}) ([]byte, []byte, error) {
+	newCertBytes, privateKey, err := CreateSignedCertificate(subCAConfig, parentCert, parentKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return newCertBytes, privateKey, nil
+}
+
+func main() {
+	rootConfig, err := CreateCAConfiguration()
+	if err != nil {
+		log.Fatal(err)
+	}
+	rootPubKey, rootPrivKey, err := CreateRootCACertificate(rootConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//cert, err := x509.ParseCertificate(newCertBytes)
-	b := pem.Block{Type: "CERTIFICATE", Bytes: newCertBytes}
-	certPEM := pem.EncodeToMemory(&b)
-	ioutil.WriteFile("/mnt/c/temp/test.crt", certPEM, os.ModePerm)
+	subCAConfig, err := CreateCAConfiguration()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	parentPriv, err := x509.ParsePKCS8PrivateKey(rootPrivKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+	subCAPubKey, subCAPrivKey, err := CreateSubCACertificate(subCAConfig, rootConfig.Certificate, parentPriv)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	rootPubPem := pem.Block{Type: "CERTIFICATE", Bytes: rootPubKey}
+	rootPubBytes := pem.EncodeToMemory(&rootPubPem)
+	rootPrivPem := pem.Block{Type: "PRIVATE KEY", Bytes: rootPrivKey}
+	rootPrivBytes := pem.EncodeToMemory(&rootPrivPem)
+	ioutil.WriteFile("/mnt/c/temp/root/root.crt", rootPubBytes, os.ModePerm)
+	ioutil.WriteFile("/mnt/c/temp/root/root.key", rootPrivBytes, os.ModePerm)
+
+	subCAPubPem := pem.Block{Type: "CERTIFICATE", Bytes: subCAPubKey}
+	subCAPubBytes := pem.EncodeToMemory(&subCAPubPem)
+	subCAPrivPem := pem.Block{Type: "PRIVATE KEY", Bytes: subCAPrivKey}
+	subCAPrivBytes := pem.EncodeToMemory(&subCAPrivPem)
+	ioutil.WriteFile("/mnt/c/temp/subca/subca.crt", subCAPubBytes, os.ModePerm)
+	ioutil.WriteFile("/mnt/c/temp/subca/subca.key", subCAPrivBytes, os.ModePerm)
 }
