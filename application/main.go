@@ -2,21 +2,37 @@ package main
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
 	"go-ca/application/configuration"
 	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
-	"strings"
-	"time"
 )
+
+// CreateSelfSignedCertificate creates a self signed certificate and returns the certificate in bytes
+func CreateSelfSignedCertificate(caConfiguration configuration.Init) (certBytes []byte, err error) {
+	if caConfiguration.Certificate.PublicKeyAlgorithm == x509.RSA {
+		priv, err := rsa.GenerateKey(rand.Reader, caConfiguration.KeyLength)
+		certBytes, err = x509.CreateCertificate(rand.Reader, &caConfiguration.Certificate, &caConfiguration.Certificate, &priv.PublicKey, priv)
+		if err != nil {
+			return nil, fmt.Errorf("CreateSelfSignedCertificate: RSA Public Key Algorithm has not been set")
+		}
+		return certBytes, nil
+	} else if caConfiguration.Certificate.PublicKeyAlgorithm == x509.ECDSA {
+		priv, err := ecdsa.GenerateKey(caConfiguration.KeyCurve, rand.Reader)
+		certBytes, err = x509.CreateCertificate(rand.Reader, &caConfiguration.Certificate, &caConfiguration.Certificate, &priv.PublicKey, priv)
+		if err != nil {
+			return nil, fmt.Errorf("CreateSelfSignedCertificate: ECDSA Public Key Algorithm has not been set")
+		}
+		return certBytes, nil
+	} else {
+		return nil, fmt.Errorf("CreateSelfSignedCertificate: Public Key Algorithm has not been set")
+	}
+}
 
 func main() {
 	caConfiguration := configuration.Init{}
@@ -53,176 +69,86 @@ func main() {
 	fmt.Println("Enter Common Name: ")
 	var commonName string
 	fmt.Scanln(&commonName)
+	err = caConfiguration.SetSubjectCommonName(commonName)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Println("Enter Country (Separated by commas): ")
 	var countryCS string
 	fmt.Scanln(&countryCS)
-	country := strings.Split(countryCS, ",")
+	caConfiguration.SetSubjectCountries(countryCS)
 
 	fmt.Println("Enter Organization (Separated by commas): ")
 	var organizationCS string
 	fmt.Scanln(&organizationCS)
-	organization := strings.Split(organizationCS, ",")
+	caConfiguration.SetSubjectOrganizations(organizationCS)
 
 	fmt.Println("Enter Organizational Unit (Separated by commas): ")
 	var organizationalUnitCS string
 	fmt.Scanln(&organizationalUnitCS)
-	organizationalUnit := strings.Split(organizationalUnitCS, ",")
+	caConfiguration.SetSubjectOrganizationalUnits(organizationalUnitCS)
 
 	fmt.Println("Enter Locality (Separated by commas): ")
 	var localityCS string
 	fmt.Scanln(&localityCS)
-	locality := strings.Split(localityCS, ",")
+	caConfiguration.SetSubjectLocalities(localityCS)
 
 	fmt.Println("Enter Province (Separated by commas): ")
 	var provinceCS string
 	fmt.Scanln(&provinceCS)
-	province := strings.Split(provinceCS, ",")
+	caConfiguration.SetSubjectProvinces(provinceCS)
 
 	fmt.Println("Enter Street Address (Separated by commas): ")
 	var streetAddressCS string
 	fmt.Scanln(&streetAddressCS)
-	streetAddress := strings.Split(streetAddressCS, ",")
+	caConfiguration.SetSubjectStreetAddresses(streetAddressCS)
 
 	fmt.Println("Enter Postal Code (Separated by commas): ")
 	var postalCodeCS string
 	fmt.Scanln(&postalCodeCS)
-	postalCode := strings.Split(postalCodeCS, ",")
+	caConfiguration.SetSubjectPostalCodes(postalCodeCS)
 
-	var subject pkix.Name
-	if commonName != "" {
-		subject.CommonName = commonName
-	}
-
-	if country[0] != "" {
-		subject.Country = country
-	}
-
-	if organization[0] != "" {
-		subject.Organization = organization
-	}
-
-	if organizationalUnit[0] != "" {
-		subject.OrganizationalUnit = organizationalUnit
-	}
-
-	if locality[0] != "" {
-		subject.Locality = locality
-	}
-
-	if province[0] != "" {
-		subject.Province = province
-	}
-
-	if streetAddress[0] != "" {
-		subject.StreetAddress = streetAddress
-	}
-
-	if postalCode[0] != "" {
-		subject.PostalCode = postalCode
-	}
-
-	fmt.Println("Enter Validity Period in Years, Months and Days (separated by commas e.g. 5,6,15)")
-	var notAfterCS string
-	fmt.Scanln(&notAfterCS)
-	validityPeriodArray := strings.Split(notAfterCS, ",")
+	caConfiguration.SetNotBefore()
 	years := 0
 	months := 0
 	days := 0
 
-	switch len(validityPeriodArray) {
-	case 3:
-		years, err = strconv.Atoi(validityPeriodArray[0])
-		months, err = strconv.Atoi(validityPeriodArray[1])
-		days, err = strconv.Atoi(validityPeriodArray[2])
-	case 2:
-		years, err = strconv.Atoi(validityPeriodArray[0])
-		months, err = strconv.Atoi(validityPeriodArray[1])
-	case 1:
-		years, err = strconv.Atoi(validityPeriodArray[0])
-	}
-	_ = err
+	fmt.Println("Enter Validity Period Years:")
+	fmt.Scanln(&years)
+	fmt.Println("Enter Validity Period Months:")
+	fmt.Scanln(&months)
+	fmt.Println("Enter Validity Period Days:")
+	fmt.Scanln(&days)
+	caConfiguration.SetNotAfter(years, months, days)
 
 	fmt.Println("Enter Path Length Constraint for CA (Enter -1 for no constraint): ")
-	var pathLengthConstraintS string
-	fmt.Scanln(&pathLengthConstraintS)
-	pathLengthConstraint, err := strconv.Atoi(pathLengthConstraintS)
+	pathLengthConstraint := 0
+	fmt.Scanln(&pathLengthConstraint)
+	caConfiguration.SetPathLengthConstraint(pathLengthConstraint)
 
-	certReqCA := x509.Certificate{
-		SerialNumber:          caConfiguration.Certificate.SerialNumber,
-		SignatureAlgorithm:    caConfiguration.Certificate.SignatureAlgorithm,
-		PublicKeyAlgorithm:    caConfiguration.Certificate.PublicKeyAlgorithm,
-		Subject:               subject,
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(years, months, days),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		MaxPathLen:            pathLengthConstraint,
-	}
-	if pathLengthConstraint == 0 {
-		certReqCA.MaxPathLenZero = true
-	}
+	caConfiguration.SetDefaultCAKeyUsages()
+	caConfiguration.SetCA()
+	caConfiguration.SetBasicConstraintsValid()
 
-	// rsa 1024, 2048, 4096, 8192, 16384
-	// ecdsa 256, 384, 521
 	var newCertBytes []byte
 	var keyLengthChoice int
 
 	fmt.Println("Choose the Key Length: ")
-	if caConfiguration.Certificate.PublicKeyAlgorithm == x509.RSA {
-		fmt.Printf("1. %v\n3. %v\n3. %v\n4. %v\n5. %v\n", "1024", "2048", "4096", "8192", "16384")
-		fmt.Scanln(&keyLengthChoice)
-		var keyLength int
-		switch keyLengthChoice {
-		case 1:
-			keyLength = 1024
-		case 2:
-			keyLength = 2048
-		case 3:
-			keyLength = 4096
-		case 5:
-			keyLength = 8192
-		case 6:
-			keyLength = 16384
-		default:
-			err := fmt.Errorf("Please select a valid Key Length")
-			fmt.Println(err.Error())
-			os.Exit(1)
-		}
-		priv, err := rsa.GenerateKey(rand.Reader, keyLength)
-		newCertBytes, err = x509.CreateCertificate(rand.Reader, &certReqCA, &certReqCA, &priv.PublicKey, priv)
-		_ = err
+	keyLengths, err := caConfiguration.GetKeyLengths()
+	for i, keyLength := range keyLengths {
+		fmt.Printf("%v. %v\n", i+1, keyLength)
 	}
+	fmt.Scanln(&keyLengthChoice)
+	caConfiguration.SetKeyLength(keyLengthChoice)
 
-	if caConfiguration.Certificate.PublicKeyAlgorithm == x509.ECDSA {
-		fmt.Printf("1. %v\n3. %v\n3. %v\n", "256", "384", "521")
-		fmt.Scanln(&keyLengthChoice)
-		var keyCurve elliptic.Curve
-		switch keyLengthChoice {
-		case 1:
-			keyCurve = elliptic.P256()
-		case 2:
-			keyCurve = elliptic.P384()
-		case 3:
-			keyCurve = elliptic.P521()
-		default:
-			err := fmt.Errorf("Please select a valid Key Length")
-			fmt.Println(err.Error())
-			os.Exit(1)
-		}
-		priv, err := ecdsa.GenerateKey(keyCurve, rand.Reader)
-		newCertBytes, err = x509.CreateCertificate(rand.Reader, &certReqCA, &certReqCA, &priv.PublicKey, priv)
-		_ = err
+	newCertBytes, err = CreateSelfSignedCertificate(caConfiguration)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	//cert, err := x509.ParseCertificate(newCertBytes)
 	b := pem.Block{Type: "CERTIFICATE", Bytes: newCertBytes}
 	certPEM := pem.EncodeToMemory(&b)
 	ioutil.WriteFile("/mnt/c/temp/test.crt", certPEM, os.ModePerm)
-	//cert, err := x509.ParseCertificate(newCertBytes)
-	_ = newCertBytes
-	_ = err
 }
-
-// TODO: Domain join CA

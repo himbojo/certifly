@@ -1,10 +1,13 @@
 package configuration
 
 import (
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"fmt"
 	"math/big"
+	"strings"
+	"time"
 )
 
 // TODO:
@@ -21,6 +24,8 @@ import (
 // Init configuration of a certificate authority
 type Init struct {
 	Certificate x509.Certificate
+	KeyLength   int
+	KeyCurve    elliptic.Curve
 }
 
 // SignatureAlgorithmChoice is an object with a choice and signature algorithm
@@ -92,6 +97,129 @@ func (e *Init) SetPublicKeyAlgorithm(choice int) error {
 		e.Certificate.PublicKeyAlgorithm = publicKeyAlgorithm
 	} else {
 		return fmt.Errorf("SetPublicKeyAlgorithm: Choice is invalid")
+	}
+	return nil
+}
+
+// SetSubjectCommonName sets the common name of the certificate subject
+func (e *Init) SetSubjectCommonName(name string) error {
+	if name != "" {
+		e.Certificate.Subject.CommonName = name
+	} else {
+		return fmt.Errorf("SetSubjectCommonName: No Subject Common Name was set")
+	}
+	return nil
+}
+
+// SetSubjectCountries sets the countries of the certificate
+func (e *Init) SetSubjectCountries(countries string) {
+	if countries != "" {
+		e.Certificate.Subject.Country = strings.Split(countries, ",")
+	}
+}
+
+// SetSubjectOrganizations sets the organizations of the certificate
+func (e *Init) SetSubjectOrganizations(organizations string) {
+	if organizations != "" {
+		e.Certificate.Subject.Organization = strings.Split(organizations, ",")
+	}
+}
+
+// SetSubjectOrganizationalUnits sets the organizatinal units of the certificate
+func (e *Init) SetSubjectOrganizationalUnits(organizationalUnits string) {
+	if organizationalUnits != "" {
+		e.Certificate.Subject.OrganizationalUnit = strings.Split(organizationalUnits, ",")
+	}
+}
+
+// SetSubjectLocalities sets the localities of the certificate
+func (e *Init) SetSubjectLocalities(localities string) {
+	if localities != "" {
+		e.Certificate.Subject.Locality = strings.Split(localities, ",")
+	}
+}
+
+// SetSubjectProvinces sets the provinces of the certificate
+func (e *Init) SetSubjectProvinces(provinces string) {
+	if provinces != "" {
+		e.Certificate.Subject.Province = strings.Split(provinces, ",")
+	}
+}
+
+// SetSubjectStreetAddresses sets the street addresses of the certificate
+func (e *Init) SetSubjectStreetAddresses(streetAddresses string) {
+	if streetAddresses != "" {
+		e.Certificate.Subject.StreetAddress = strings.Split(streetAddresses, ",")
+	}
+}
+
+// SetSubjectPostalCodes sets the postal codes of the certificate
+func (e *Init) SetSubjectPostalCodes(postalCodes string) {
+	if postalCodes != "" {
+		e.Certificate.Subject.PostalCode = strings.Split(postalCodes, ",")
+	}
+}
+
+// SetNotAfter sets the not after date on the certificate
+func (e *Init) SetNotAfter(years, months, days int) {
+	e.Certificate.NotAfter = time.Now().AddDate(years, months, days)
+}
+
+// SetDefaultCAKeyUsages sets the default key usages for a CA
+func (e *Init) SetDefaultCAKeyUsages() {
+	e.Certificate.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageCRLSign
+}
+
+// SetNotBefore sets the default not before time (now)
+func (e *Init) SetNotBefore() {
+	e.Certificate.NotBefore = time.Now()
+}
+
+// SetPathLengthConstraint sets the path length constraint of the certificate
+func (e *Init) SetPathLengthConstraint(pathLengthConstraint int) {
+	if pathLengthConstraint == 0 {
+		e.Certificate.MaxPathLenZero = true
+	}
+	e.Certificate.MaxPathLen = pathLengthConstraint
+}
+
+// SetCA sets whether it is going to be a CA or not
+func (e *Init) SetCA() {
+	e.Certificate.IsCA = true
+}
+
+// SetBasicConstraintsValid sets where the basic contrains are valid
+func (e *Init) SetBasicConstraintsValid() {
+	e.Certificate.BasicConstraintsValid = true
+}
+
+// GetKeyLengths returns a list of available key lengths
+func (e *Init) GetKeyLengths() ([]int, error) {
+	if e.Certificate.PublicKeyAlgorithm == x509.RSA {
+		return []int{1024, 2048, 4096, 8192, 16384}, nil
+	} else if e.Certificate.PublicKeyAlgorithm == x509.ECDSA {
+		return []int{256, 384, 521}, nil
+	} else {
+		return nil, fmt.Errorf("GetKeyLengths: Public Key Algorithm has not been set")
+	}
+}
+
+// SetKeyLength sets the key length
+func (e *Init) SetKeyLength(choice int) error {
+	keyLengths, err := e.GetKeyLengths()
+	if e.Certificate.PublicKeyAlgorithm == x509.RSA {
+		e.KeyLength = keyLengths[choice-1]
+	} else if e.Certificate.PublicKeyAlgorithm == x509.ECDSA {
+		switch choice {
+		case 1:
+			e.KeyCurve = elliptic.P256()
+		case 2:
+			e.KeyCurve = elliptic.P384()
+		case 3:
+			e.KeyCurve = elliptic.P521()
+		}
+	} else {
+		return fmt.Errorf("GetKeyLengths: Public Key Algorithm has not been set; %v", err)
 	}
 	return nil
 }
