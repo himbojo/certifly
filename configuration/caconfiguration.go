@@ -1,4 +1,4 @@
-package configuration
+package caconfiguration
 
 import (
 	"crypto/elliptic"
@@ -51,35 +51,26 @@ func (e *Init) SetSerialNumber() error {
 	return nil
 }
 
-// GetSignatureAlgorithmChoices returns an array of Signature Algorithm Choices
-func (e *Init) GetSignatureAlgorithmChoices() []SignatureAlgorithmChoice {
-	SHA256RSA := SignatureAlgorithmChoice{Choice: 1, SigAlg: x509.SHA256WithRSA}
-	SHA384RSA := SignatureAlgorithmChoice{Choice: 2, SigAlg: x509.SHA384WithRSA}
-	SHA512RSA := SignatureAlgorithmChoice{Choice: 3, SigAlg: x509.SHA512WithRSA}
-	SHA256ECDSA := SignatureAlgorithmChoice{Choice: 4, SigAlg: x509.ECDSAWithSHA256}
-	SHA384ECDSA := SignatureAlgorithmChoice{Choice: 5, SigAlg: x509.ECDSAWithSHA384}
-	SHA512ECDSA := SignatureAlgorithmChoice{Choice: 6, SigAlg: x509.ECDSAWithSHA512}
-
-	signatureAlgorithmChoices := []SignatureAlgorithmChoice{SHA256RSA, SHA384RSA, SHA512RSA, SHA256ECDSA, SHA384ECDSA, SHA512ECDSA}
+// GetSignatureAlgorithms returns an array of Signature Algorithms
+func (e *Init) GetSignatureAlgorithms() []x509.SignatureAlgorithm {
+	signatureAlgorithmChoices := []x509.SignatureAlgorithm{x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA, x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512}
 	return signatureAlgorithmChoices
 }
 
-// GetPublicKeyAlgorithmChoices returns an array of Public Key Algorithm Choices
-func (e *Init) GetPublicKeyAlgorithmChoices() []PublicKeyAlgorithmChoice {
-	RSA := PublicKeyAlgorithmChoice{Choice: 1, PkAlg: x509.RSA}
-	ECDSA := PublicKeyAlgorithmChoice{Choice: 2, PkAlg: x509.ECDSA}
+// GetPublicKeyAlgorithms returns an array of Public Key Algorithms
+func (e *Init) GetPublicKeyAlgorithms() []x509.PublicKeyAlgorithm {
 
-	publicKeyAlgorithmChoices := []PublicKeyAlgorithmChoice{RSA, ECDSA}
+	publicKeyAlgorithmChoices := []x509.PublicKeyAlgorithm{x509.RSA, x509.ECDSA}
 	return publicKeyAlgorithmChoices
 }
 
 // SetSignatureAlgorithm sets the signature algorithm of the certificate
 func (e *Init) SetSignatureAlgorithm(choice int) error {
-	choices := e.GetSignatureAlgorithmChoices()
+	choices := e.GetSignatureAlgorithms()
 	var signatureAlgorithm x509.SignatureAlgorithm
 
-	if choice >= 1 && choice <= len(choices) {
-		signatureAlgorithm = choices[choice-1].SigAlg
+	if choice <= len(choices) {
+		signatureAlgorithm = choices[choice]
 		e.Certificate.SignatureAlgorithm = signatureAlgorithm
 	} else {
 		return fmt.Errorf("SetSignatureAlgorithm: Choice is invalid")
@@ -89,11 +80,11 @@ func (e *Init) SetSignatureAlgorithm(choice int) error {
 
 // SetPublicKeyAlgorithm sets the signature algorithm of the certificate
 func (e *Init) SetPublicKeyAlgorithm(choice int) error {
-	choices := e.GetPublicKeyAlgorithmChoices()
+	choices := e.GetPublicKeyAlgorithms()
 	var publicKeyAlgorithm x509.PublicKeyAlgorithm
 
-	if choice >= 1 && choice <= len(choices) {
-		publicKeyAlgorithm = choices[choice-1].PkAlg
+	if choice <= len(choices) {
+		publicKeyAlgorithm = choices[choice]
 		e.Certificate.PublicKeyAlgorithm = publicKeyAlgorithm
 	} else {
 		return fmt.Errorf("SetPublicKeyAlgorithm: Choice is invalid")
@@ -208,14 +199,14 @@ func (e *Init) GetKeyLengths() ([]int, error) {
 func (e *Init) SetKeyLength(choice int) error {
 	keyLengths, err := e.GetKeyLengths()
 	if e.Certificate.PublicKeyAlgorithm == x509.RSA {
-		e.KeyLength = keyLengths[choice-1]
+		e.KeyLength = keyLengths[choice]
 	} else if e.Certificate.PublicKeyAlgorithm == x509.ECDSA {
 		switch choice {
-		case 1:
+		case 0:
 			e.KeyCurve = elliptic.P256()
-		case 2:
+		case 1:
 			e.KeyCurve = elliptic.P384()
-		case 3:
+		case 2:
 			e.KeyCurve = elliptic.P521()
 		}
 	} else {
