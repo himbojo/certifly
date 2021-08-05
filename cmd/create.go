@@ -17,13 +17,14 @@ limitations under the License.
 package cmd
 
 import (
+	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 
-	createca "go-ca/creation"
+	createca "go-ca/create"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -101,14 +102,62 @@ func createCertificateAuthority() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		_ = subCAConfig
-		//parentPriv, err := x509.ParsePKCS8PrivateKey(rootPrivKey)
-		//if err != nil {
-		//	log.Fatal(err)
-		//}
-		//subCAPubKey, subCAPrivKey, err := createca.CreateSubCACertificate(subCAConfig, rootConfig.Certificate, parentPriv)
-		//if err != nil {
-		//	log.Fatal(err)
-		//}
+
+		prompt := promptui.Prompt{
+			Label: "Enter Parent Private Key Path",
+		}
+		result, err := prompt.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+		privData, err := ioutil.ReadFile(result)
+		if err != nil {
+			log.Fatal(err)
+		}
+		decodedPriv, rest := pem.Decode(privData)
+		_ = rest
+		parentPriv, err := x509.ParsePKCS8PrivateKey(decodedPriv.Bytes)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		prompt = promptui.Prompt{
+			Label: "Enter Parent Public Key Path",
+		}
+		result, err = prompt.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+		pubData, err := ioutil.ReadFile(result)
+		if err != nil {
+			log.Fatal(err)
+		}
+		decodedPub, rest := pem.Decode(pubData)
+		_ = rest
+		parentPub, err := x509.ParseCertificate(decodedPub.Bytes)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		subCAPubKey, subCAPrivKey, err := createca.CreateSubCACertificate(subCAConfig, *parentPub, parentPriv)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		subCAPubPem := pem.Block{Type: "CERTIFICATE", Bytes: subCAPubKey}
+		subCAPubBytes := pem.EncodeToMemory(&subCAPubPem)
+		subCAPrivPem := pem.Block{Type: "PRIVATE KEY", Bytes: subCAPrivKey}
+		subCAPrivBytes := pem.EncodeToMemory(&subCAPrivPem)
+
+		filename := subCAConfig.Certificate.Subject.CommonName
+		filelocation := fmt.Sprintf("/mnt/c/temp/subca/%v", filename)
+		publicKeyExtension := fmt.Sprintf("%v.crt", filelocation)
+		privateKeyExtension := fmt.Sprintf("%v.key", filelocation)
+		ioutil.WriteFile(publicKeyExtension, subCAPubBytes, os.ModePerm)
+		ioutil.WriteFile(privateKeyExtension, subCAPrivBytes, os.ModePerm)
 	}
 }
