@@ -89,8 +89,7 @@ func createCertificateAuthority() {
 		rootPubBytes := pem.EncodeToMemory(&rootPubPem)
 		rootPrivPem := pem.Block{Type: "PRIVATE KEY", Bytes: rootPrivKey}
 		rootPrivBytes := pem.EncodeToMemory(&rootPrivPem)
-
-		filename := rootConfig.Certificate.Subject.CommonName
+		filename := rootConfig.GetCertificateRequest().Subject.CommonName
 		filelocation := fmt.Sprintf("/mnt/c/temp/root/%v", filename)
 		publicKeyExtension := fmt.Sprintf("%v.crt", filelocation)
 		privateKeyExtension := fmt.Sprintf("%v.key", filelocation)
@@ -152,8 +151,7 @@ func createCertificateAuthority() {
 		subCAPubBytes := pem.EncodeToMemory(&subCAPubPem)
 		subCAPrivPem := pem.Block{Type: "PRIVATE KEY", Bytes: subCAPrivKey}
 		subCAPrivBytes := pem.EncodeToMemory(&subCAPrivPem)
-
-		filename := subCAConfig.Certificate.Subject.CommonName
+		filename := subCAConfig.GetCertificateRequest().Subject.CommonName
 		filelocation := fmt.Sprintf("/mnt/c/temp/subca/%v", filename)
 		publicKeyExtension := fmt.Sprintf("%v.crt", filelocation)
 		privateKeyExtension := fmt.Sprintf("%v.key", filelocation)
