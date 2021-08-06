@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "go-ca/cmd"
+import "certifly/cmd"
 
 func main() {
 	cmd.Execute()

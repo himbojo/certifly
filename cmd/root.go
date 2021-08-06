@@ -24,10 +24,10 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "go-ca",
-	Short: "go-ca is a Certificate Authority Management Tool",
+	Use:   "certifly",
+	Short: "certifly is a Certificate Authority Management Tool",
 	Long: `
-go-ca as the name suggests is a Certificate Authority
+certifly is a Certificate Authority
 written in Go. It can be used to create Root through to
 Subordinate CAs, list the current CAs on the system, and
 issue end entity certificates.`,
