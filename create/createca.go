@@ -6,15 +6,26 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
-	caconfiguration "go-ca/configuration"
+	request "go-ca/certificate/request"
 	"strconv"
 	"strings"
 
 	"github.com/manifoldco/promptui"
 )
 
+const (
+	country            = "Country"
+	organization       = "Organization"
+	organizationalUnit = "Organizational Unit"
+	locality           = "Locality"
+	province           = "Province"
+	streetAddress      = "Street Address"
+	postalCode         = "PostalCode"
+	exit               = "Exit"
+)
+
 // CreateSignedCertificate creates a CA signed certificate and returns the certificate components
-func CreateSignedCertificate(caConfiguration caconfiguration.Init, parentPub x509.Certificate, parentPriv interface{}) (certBytes []byte, privateKey []byte, err error) {
+func CreateSignedCertificate(caConfiguration request.Init, parentPub x509.Certificate, parentPriv interface{}) (certBytes []byte, privateKey []byte, err error) {
 	request := caConfiguration.GetCertificateRequest()
 	if request.PublicKeyAlgorithm == x509.RSA {
 		priv, err := rsa.GenerateKey(rand.Reader, caConfiguration.KeyLength)
@@ -84,8 +95,8 @@ func SinglePrompt(p string) (string, error) {
 }
 
 // Configuration asks for user input and returns a CA configuration
-func Configuration() (caconfiguration.Init, error) {
-	caConfiguration := caconfiguration.Init{}
+func Configuration() (request.Init, error) {
+	caConfiguration := request.Init{}
 
 	err := caConfiguration.SetSerialNumber()
 	if err != nil {
@@ -206,47 +217,71 @@ func Configuration() (caconfiguration.Init, error) {
 		return caConfiguration, err
 	}
 
-	country, err := LoopPrompt("Countries")
-	if err != nil {
-		return caConfiguration, err
-	}
-	caConfiguration.SetCountry(country)
+	options := []string{country, organization, organizationalUnit, locality, province, streetAddress, postalCode, exit}
+	for {
+		template := &promptui.SelectTemplates{
+			Active:   fmt.Sprintf("%v {{ . | cyan }}", promptui.IconSelect),
+			Inactive: "{{ . }}",
+			Selected: "{{ . }}",
+		}
+		prompt := promptui.Select{
+			Label:     "Options",
+			Items:     options,
+			Templates: template,
+		}
+		_, entry, err := prompt.Run()
+		if err != nil {
+			return caConfiguration, err
+		}
 
-	organization, err := LoopPrompt("Organizations")
-	if err != nil {
-		return caConfiguration, err
+		switch entry {
+		case country:
+			country, err := LoopPrompt("Countries")
+			if err != nil {
+				return caConfiguration, err
+			}
+			caConfiguration.SetCountry(country)
+		case organization:
+			organization, err := LoopPrompt("Organizations")
+			if err != nil {
+				return caConfiguration, err
+			}
+			caConfiguration.SetOrganisation(organization)
+		case organizationalUnit:
+			organizationalUnit, err := LoopPrompt("Organization Units")
+			if err != nil {
+				return caConfiguration, err
+			}
+			caConfiguration.SetOrganisationalUnit(organizationalUnit)
+		case locality:
+			locality, err := LoopPrompt("Locality")
+			if err != nil {
+				return caConfiguration, err
+			}
+			caConfiguration.SetLocality(locality)
+		case province:
+			province, err := LoopPrompt("Province")
+			if err != nil {
+				return caConfiguration, err
+			}
+			caConfiguration.SetProvince(province)
+		case streetAddress:
+			streetAddress, err := LoopPrompt("Street Address")
+			if err != nil {
+				return caConfiguration, err
+			}
+			caConfiguration.SetStreetAddress(streetAddress)
+		case postalCode:
+			postalCode, err := LoopPrompt("Postal Codes")
+			if err != nil {
+				return caConfiguration, err
+			}
+			caConfiguration.SetPostalCodes(postalCode)
+		}
+		if entry == exit {
+			break
+		}
 	}
-	caConfiguration.SetOrganisation(organization)
-
-	organizationalUnit, err := LoopPrompt("Organization Units")
-	if err != nil {
-		return caConfiguration, err
-	}
-	caConfiguration.SetOrganisationalUnit(organizationalUnit)
-
-	locality, err := LoopPrompt("Locality")
-	if err != nil {
-		return caConfiguration, err
-	}
-	caConfiguration.SetLocality(locality)
-
-	province, err := LoopPrompt("Province")
-	if err != nil {
-		return caConfiguration, err
-	}
-	caConfiguration.SetProvince(province)
-
-	streetAddress, err := LoopPrompt("Street Address")
-	if err != nil {
-		return caConfiguration, err
-	}
-	caConfiguration.SetStreetAddress(streetAddress)
-
-	postalCode, err := LoopPrompt("Postal Codes")
-	if err != nil {
-		return caConfiguration, err
-	}
-	caConfiguration.SetPostalCodes(postalCode)
 
 	caConfiguration.SetNotBefore()
 	caConfiguration.SetDefaultCAKeyUsages()
@@ -257,7 +292,7 @@ func Configuration() (caconfiguration.Init, error) {
 }
 
 // CreateRootCACertificate this creates a root CA certificate and return the public and private key
-func CreateRootCACertificate(rootConfig caconfiguration.Init) ([]byte, []byte, error) {
+func CreateRootCACertificate(rootConfig request.Init) ([]byte, []byte, error) {
 	newCertBytes, privateKey, err := CreateSignedCertificate(rootConfig, rootConfig.GetCertificateRequest(), nil)
 	if err != nil {
 		return nil, nil, err
@@ -266,7 +301,7 @@ func CreateRootCACertificate(rootConfig caconfiguration.Init) ([]byte, []byte, e
 }
 
 // CreateSubCACertificate this creates a CA certificate and return the public and private key
-func CreateSubCACertificate(subCAConfig caconfiguration.Init, parentCert x509.Certificate, parentKey interface{}) ([]byte, []byte, error) {
+func CreateSubCACertificate(subCAConfig request.Init, parentCert x509.Certificate, parentKey interface{}) ([]byte, []byte, error) {
 	newCertBytes, privateKey, err := CreateSignedCertificate(subCAConfig, parentCert, parentKey)
 	if err != nil {
 		return nil, nil, err

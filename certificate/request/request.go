@@ -1,4 +1,4 @@
-package caconfiguration
+package request
 
 import (
 	"crypto/elliptic"
@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 )
 
@@ -40,8 +41,10 @@ func (e *Init) SetSerialNumber() error {
 
 // GetSignatureAlgorithms returns an array of Signature Algorithms
 func (e *Init) GetSignatureAlgorithms() []x509.SignatureAlgorithm {
-	signatureAlgorithmChoices := []x509.SignatureAlgorithm{x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA, x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512}
-	return signatureAlgorithmChoices
+	if strings.Contains(e.certificate.PublicKeyAlgorithm.String(), "RSA") {
+		return []x509.SignatureAlgorithm{x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA}
+	}
+	return []x509.SignatureAlgorithm{x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512}
 }
 
 // GetPublicKeyAlgorithms returns an array of Public Key Algorithms
