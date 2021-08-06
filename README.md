@@ -1,2 +1,2 @@
-# go-ca
+# certifly
 Certificate Authority for Go

@@ -6,7 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
-	request "go-ca/certificate/request"
+	request "certifly/certificate/request"
 	"strconv"
 	"strings"
 

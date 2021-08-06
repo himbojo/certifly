@@ -1,5 +1,8 @@
-module go-ca
+module certifly
 
+// certificat
+// registron
+// certifly
 go 1.16
 
 require (

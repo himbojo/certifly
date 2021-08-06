@@ -24,7 +24,7 @@ import (
 	"log"
 	"os"
 
-	createca "go-ca/create"
+	createca "certifly/create"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
