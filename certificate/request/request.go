@@ -38,7 +38,7 @@ import (
 
 // Init configuration of a certificate authority
 type Init struct {
-	certificate x509.Certificate
+	Certificate x509.Certificate
 	KeyLength   int
 	KeyCurve    elliptic.Curve
 }
@@ -50,13 +50,13 @@ func (e *Init) SetSerialNumber() error {
 	if err != nil {
 		return fmt.Errorf("SetSerialNumber: Serial Number could not be set; %v", err)
 	}
-	e.certificate.SerialNumber = serial
+	e.Certificate.SerialNumber = serial
 	return nil
 }
 
 // GetSignatureAlgorithms returns an array of Signature Algorithms
 func (e *Init) GetSignatureAlgorithms() []x509.SignatureAlgorithm {
-	if strings.Contains(e.certificate.PublicKeyAlgorithm.String(), "RSA") {
+	if strings.Contains(e.Certificate.PublicKeyAlgorithm.String(), "RSA") {
 		return []x509.SignatureAlgorithm{x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA}
 	}
 	return []x509.SignatureAlgorithm{x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512}
@@ -76,7 +76,7 @@ func (e *Init) SetSignatureAlgorithm(choice int) error {
 
 	if choice <= len(choices) {
 		signatureAlgorithm = choices[choice]
-		e.certificate.SignatureAlgorithm = signatureAlgorithm
+		e.Certificate.SignatureAlgorithm = signatureAlgorithm
 	} else {
 		return fmt.Errorf("SetSignatureAlgorithm: Choice is invalid")
 	}
@@ -90,7 +90,7 @@ func (e *Init) SetPublicKeyAlgorithm(choice int) error {
 
 	if choice <= len(choices) {
 		publicKeyAlgorithm = choices[choice]
-		e.certificate.PublicKeyAlgorithm = publicKeyAlgorithm
+		e.Certificate.PublicKeyAlgorithm = publicKeyAlgorithm
 	} else {
 		return fmt.Errorf("SetPublicKeyAlgorithm: Choice is invalid")
 	}
@@ -100,7 +100,7 @@ func (e *Init) SetPublicKeyAlgorithm(choice int) error {
 // SetSubjectCommonName sets the common name of the certificate subject
 func (e *Init) SetSubjectCommonName(name string) error {
 	if name != "" {
-		e.certificate.Subject.CommonName = name
+		e.Certificate.Subject.CommonName = name
 	} else {
 		return fmt.Errorf("SetSubjectCommonName: No Subject Common Name was set")
 	}
@@ -109,42 +109,42 @@ func (e *Init) SetSubjectCommonName(name string) error {
 
 // SetNotAfter sets the not after date on the certificate
 func (e *Init) SetNotAfter(years, months, days int) {
-	e.certificate.NotAfter = time.Now().AddDate(years, months, days)
+	e.Certificate.NotAfter = time.Now().AddDate(years, months, days)
 }
 
 // SetDefaultCAKeyUsages sets the default key usages for a CA
 func (e *Init) SetDefaultCAKeyUsages() {
-	e.certificate.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageCRLSign
+	e.Certificate.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign | x509.KeyUsageCRLSign
 }
 
 // SetNotBefore sets the default not before time (now)
 func (e *Init) SetNotBefore() {
-	e.certificate.NotBefore = time.Now()
+	e.Certificate.NotBefore = time.Now()
 }
 
 // SetPathLengthConstraint sets the path length constraint of the certificate
 func (e *Init) SetPathLengthConstraint(pathLengthConstraint int) {
 	if pathLengthConstraint == 0 {
-		e.certificate.MaxPathLenZero = true
+		e.Certificate.MaxPathLenZero = true
 	}
-	e.certificate.MaxPathLen = pathLengthConstraint
+	e.Certificate.MaxPathLen = pathLengthConstraint
 }
 
 // SetCA sets whether it is going to be a CA or not
 func (e *Init) SetCA() {
-	e.certificate.IsCA = true
+	e.Certificate.IsCA = true
 }
 
 // SetBasicConstraintsValid sets where the basic contrains are valid
 func (e *Init) SetBasicConstraintsValid() {
-	e.certificate.BasicConstraintsValid = true
+	e.Certificate.BasicConstraintsValid = true
 }
 
 // GetKeyLengths returns a list of available key lengths
 func (e *Init) GetKeyLengths() ([]int, error) {
-	if e.certificate.PublicKeyAlgorithm == x509.RSA {
+	if e.Certificate.PublicKeyAlgorithm == x509.RSA {
 		return []int{1024, 2048, 4096, 8192, 16384}, nil
-	} else if e.certificate.PublicKeyAlgorithm == x509.ECDSA {
+	} else if e.Certificate.PublicKeyAlgorithm == x509.ECDSA {
 		return []int{256, 384, 521}, nil
 	} else {
 		return nil, fmt.Errorf("GetKeyLengths: Public Key Algorithm has not been set")
@@ -154,9 +154,9 @@ func (e *Init) GetKeyLengths() ([]int, error) {
 // SetKeyLength sets the key length
 func (e *Init) SetKeyLength(choice int) error {
 	keyLengths, err := e.GetKeyLengths()
-	if e.certificate.PublicKeyAlgorithm == x509.RSA {
+	if e.Certificate.PublicKeyAlgorithm == x509.RSA {
 		e.KeyLength = keyLengths[choice]
-	} else if e.certificate.PublicKeyAlgorithm == x509.ECDSA {
+	} else if e.Certificate.PublicKeyAlgorithm == x509.ECDSA {
 		switch choice {
 		case 0:
 			e.KeyCurve = elliptic.P256()
@@ -173,40 +173,40 @@ func (e *Init) SetKeyLength(choice int) error {
 
 // SetCountry sets the country attribute of the certificate request
 func (e *Init) SetCountry(c []string) {
-	e.certificate.Subject.Country = c
+	e.Certificate.Subject.Country = c
 }
 
 // SetOrganisation sets the Organization attribute of the certificate request
 func (e *Init) SetOrganisation(c []string) {
-	e.certificate.Subject.Organization = c
+	e.Certificate.Subject.Organization = c
 }
 
 // SetOrganisationalUnit sets the OrganizationalUnit attribute of the certificate request
 func (e *Init) SetOrganisationalUnit(c []string) {
-	e.certificate.Subject.OrganizationalUnit = c
+	e.Certificate.Subject.OrganizationalUnit = c
 }
 
 // SetLocality sets the Locality attribute of the certificate request
 func (e *Init) SetLocality(c []string) {
-	e.certificate.Subject.Locality = c
+	e.Certificate.Subject.Locality = c
 }
 
 // SetProvince sets the Province attribute of the certificate request
 func (e *Init) SetProvince(c []string) {
-	e.certificate.Subject.Province = c
+	e.Certificate.Subject.Province = c
 }
 
 // SetStreetAddress sets the StreetAddress attribute of the certificate request
 func (e *Init) SetStreetAddress(c []string) {
-	e.certificate.Subject.StreetAddress = c
+	e.Certificate.Subject.StreetAddress = c
 }
 
 // SetPostalCodes sets the PostalCode attribute of the certificate request
 func (e *Init) SetPostalCodes(c []string) {
-	e.certificate.Subject.PostalCode = c
+	e.Certificate.Subject.PostalCode = c
 }
 
 // GetCertificateRequest returns the current certificate request
 func (e *Init) GetCertificateRequest() x509.Certificate {
-	return e.certificate
+	return e.Certificate
 }

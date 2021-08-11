@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package createca
+package create
 
 import (
 	request "certifly/certificate/request"

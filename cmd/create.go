@@ -24,7 +24,7 @@ import (
 	"log"
 	"os"
 
-	createca "certifly/create"
+	create "certifly/certificate/authority"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
@@ -65,11 +65,11 @@ func createCertificateAuthority() {
 	}
 
 	if result == "Root" {
-		rootConfig, err := createca.Configuration()
+		rootConfig, err := create.Configuration()
 		if err != nil {
 			log.Fatal(err)
 		}
-		rootPubKey, rootPrivKey, err := createca.CreateRootCACertificate(rootConfig)
+		rootPubKey, rootPrivKey, err := create.CreateRootCACertificate(rootConfig)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -86,7 +86,7 @@ func createCertificateAuthority() {
 		ioutil.WriteFile(privateKeyExtension, rootPrivBytes, os.ModePerm)
 
 	} else if result == "Subordinate" {
-		subCAConfig, err := createca.Configuration()
+		subCAConfig, err := create.Configuration()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -126,8 +126,7 @@ func createCertificateAuthority() {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		subCAPubKey, subCAPrivKey, err := createca.CreateSubCACertificate(subCAConfig, *parentPub, parentPriv)
+		subCAPubKey, subCAPrivKey, err := create.CreateSubCACertificate(subCAConfig, *parentPub, parentPriv)
 		if err != nil {
 			log.Fatal(err)
 		}
